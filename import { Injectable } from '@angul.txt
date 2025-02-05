@@ -1,0 +1,530 @@
+// import { Injectable } from '@angular/core';
+// import { User } from '../models/user.model';
+// import { Login } from '../models/login.model';
+// import { Observable } from 'rxjs';
+// import { HttpClient } from '@angular/common/http';
+
+// @Injectable({
+//   providedIn: 'root'
+// })
+
+// export class AuthService {
+
+//   // apiUrl:string="https://ide-dccadbbbafbbfbbceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080/api";
+//   apiUrl:string="https://ide-ccffffdefbceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080/api";//Bhawesh
+  
+//   constructor(private http:HttpClient) { }
+
+//   register(user:User):Observable<any>{
+//     return this.http.post<any>(this.apiUrl+"/register",user);
+//   }
+
+//   login(login:Login):Observable<any>{
+//     return this.http.post<any>(this.apiUrl+"/login",login);
+//   }
+
+// }
+
+
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+
+  apiUrl: string = "https://ide-ccffffdefbceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080/api"; 
+
+  constructor(private http: HttpClient) {}
+
+  register(user: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/register`, user);
+  }
+
+  login(credentials: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/login`, credentials);
+  }
+
+  storeUserData(response: any) {
+    localStorage.setItem('jwtToken', response.token);
+    localStorage.setItem('userId', response.userId);
+    localStorage.setItem('username', response.username);
+    localStorage.setItem('role', response.role);
+  }
+
+  getToken() {
+    return localStorage.getItem('jwtToken');
+  }
+
+  getUserId() {
+    return localStorage.getItem('userId');
+  }
+
+  getUsername() {
+    return localStorage.getItem('username');
+  }
+
+  getUserRole() {
+    return localStorage.getItem('role');
+  }
+
+  isAuthenticated(): boolean {
+    return this.getToken() !== null;
+  }
+
+  logout() {
+    localStorage.removeItem('jwtToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('role');
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { AuthService } from 'src/app/services/auth.service';
+
+@Component({
+  selector: 'app-login',
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.css']
+})
+export class LoginComponent implements OnInit {
+  loginForm:FormGroup;
+  // ,Validators.pattern("^[a-zA-Z0-9_]*$")
+
+  constructor(private builder:FormBuilder, private router:Router, private service:AuthService) {
+    this.loginForm=this.builder.group({
+      email:["",[Validators.required,Validators.email]],
+      password:["",[Validators.required,Validators.pattern('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$')]]
+    });
+   }
+
+  ngOnInit(): void {
+  }
+
+  login(){
+    if(this.loginForm.valid){
+      let loginData = this.loginForm.value;
+      this.service.login(loginData).subscribe(role => {
+        if(role){
+          if(role === 'admin'){
+            this.router.navigate(['/adminnav']);
+          } else if(role === 'user'){
+            this.router.navigate(['/usernav']);
+          }
+        } else {
+          alert('Login failed');
+        }
+      });
+    }
+  }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+package com.examly.springapp.config;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+import java.io.IOException;
+import org.springframework.util.StringUtils;
+
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtUtil jwtUtil;
+    private final UserDetailsService userDetailsService;
+
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserDetailsService userDetailsService) {
+        this.jwtUtil = jwtUtil;
+        this.userDetailsService = userDetailsService;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String token = extractJwtToken(request);
+        if (token != null && jwtUtil.validateToken(token, userDetailsService.loadUserByUsername(jwtUtil.extractUsername(token)))) {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(jwtUtil.extractUsername(token));
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private String extractJwtToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+}
+
+
+
+package com.examly.springapp.config;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+@Component
+public class JwtUtil {
+    private final String SECRET_KEY = "Bearer"; // Change this to a secure key
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .setSigningKey(SECRET_KEY)
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    public String generateToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        return createToken(claims, userDetails.getUsername());
+    }
+
+    private String createToken(Map<String, Object> claims, String subject) {
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // 10 hours
+                .signWith(SignatureAlgorithm.HS256, SECRET_KEY)
+                .compact();
+    }
+
+    public boolean validateToken(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    }
+}
+
+
+
+
+package com.examly.springapp.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf().disable()
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/auth/login", "/auth/register").permitAll()
+                .anyRequest().authenticated()
+            )
+            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+}
+
+
+
+
+
+// package com.examly.springapp.controller;
+
+
+// import org.springframework.web.bind.annotation.RestController;
+
+
+// import org.springframework.beans.factory.annotation.Autowired;
+// import org.springframework.http.ResponseEntity;
+// import org.springframework.web.bind.annotation.CrossOrigin;
+// import org.springframework.web.bind.annotation.GetMapping;
+// import org.springframework.web.bind.annotation.PathVariable;
+// import org.springframework.web.bind.annotation.PostMapping;
+// import org.springframework.web.bind.annotation.RequestBody;
+// import org.springframework.web.bind.annotation.RestController;
+
+// import com.examly.springapp.model.User;
+// import com.examly.springapp.service.UserServiceImpl;
+
+
+// @RestController
+// @CrossOrigin
+// public class AuthController {
+
+//     @Autowired
+//     private UserServiceImpl userService;
+
+
+//     @PostMapping("/api/register")
+//     public ResponseEntity<?> registerUser(@RequestBody User u){
+//         return ResponseEntity.status(201).body(userService.register(u));
+//     }
+
+//     @PostMapping("/api/login")
+//     public ResponseEntity<?> loginUser(@RequestBody User u){
+//         return ResponseEntity.status(200).body(userService.login(u));
+//     }
+//     @GetMapping("/api/user")
+//     public ResponseEntity<?> getAllUser(){
+//         return ResponseEntity.status(200).body(userService.getAllUsers());
+//     }
+
+//     @GetMapping("/api/user/{userId}")
+//     public ResponseEntity<?> getUserById(@PathVariable Integer userId){
+//         return ResponseEntity.status(200).body(userService.getUserById(userId));
+//     }
+// }
+
+
+
+package com.examly.springapp.controller;
+
+import com.examly.springapp.model.User;
+import com.examly.springapp.security.JwtUtil;
+import com.examly.springapp.service.UserServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@CrossOrigin
+@RequestMapping("/api")
+public class AuthController {
+
+    @Autowired
+    private UserServiceImpl userService;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    @PostMapping("/register")
+    public ResponseEntity<?> registerUser(@RequestBody User u) {
+        return ResponseEntity.status(201).body(userService.register(u));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUser(@RequestBody User u) {
+        User user = userService.login(u);
+        if (user != null) {
+            String token = jwtUtil.generateToken(user.getEmail());
+
+            // ✅ Send user details with token
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("userId", user.getUserId());
+            response.put("username", user.getUsername());
+            response.put("role", user.getUserRole());
+
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.status(401).body("Invalid credentials");
+    }
+
+    @GetMapping("/user")
+    public ResponseEntity<?> getAllUsers() {
+        return ResponseEntity.status(200).body(userService.getAllUsers());
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<?> getUserById(@PathVariable Integer userId) {
+        return ResponseEntity.status(200).body(userService.getUserById(userId));
+    }
+}
+
+
+@Entity
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int userId;
+    private String email;
+    private String password;
+    private String username;
+    private String mobileNumber;
+    private String userRole;
+
+
+
+// package com.examly.springapp.service;
+// import java.util.List;
+
+// import org.springframework.beans.factory.annotation.Autowired;
+// import org.springframework.stereotype.Service;
+
+// import com.examly.springapp.model.User;
+// import com.examly.springapp.repository.UserRepo;
+// import com.examly.springapp.service.UserService;
+
+
+// @Service
+// public class UserServiceImpl implements UserService
+// {
+
+
+
+//     @Autowired
+//     private UserRepo userRepo;
+
+
+//     @Override
+//     public List<User> getAllUsers() {
+//        return userRepo.findAll();
+//     }
+
+//     @Override
+//     public User getUserById(int userId) {
+//         return userRepo.findById(userId).get();
+//     }
+
+//     @Override
+//     public User register(User u) {        
+//        return userRepo.save(u);
+//     }
+
+//     @Override
+//     public User login(User u) {
+//         User approve= userRepo.findById(u.getUserId()).get();
+//         if(approve!=null){
+//             return approve;
+//         }
+//        return null;
+//     }
+
+   
+   
+// }
+
+
+
+
+package com.examly.springapp.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.examly.springapp.model.User;
+import com.examly.springapp.repository.UserRepo;
+import java.util.List;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+    @Autowired
+    private UserRepo userRepo;
+
+    @Override
+    public List<User> getAllUsers() {
+        return userRepo.findAll();
+    }
+
+    @Override
+    public User getUserById(int userId) {
+        return userRepo.findById(userId).orElse(null);
+    }
+
+    @Override
+    public User register(User u) {
+        return userRepo.save(u);
+    }
+
+    @Override
+    public User login(User u) {
+        User existingUser = userRepo.findByEmail(u.getEmail());
+        if (existingUser != null && existingUser.getPassword().equals(u.getPassword())) {
+            return existingUser;
+        }
+        return null;
+    }
+}
+
