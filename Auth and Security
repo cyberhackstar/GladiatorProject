@@ -1,0 +1,306 @@
+Backend Changes
+1️⃣ Modify AuthController.java
+📌 Changes:
+
+Return id, username, and role along with the JWT.
+
+
+
+package com.examly.springapp.controller;
+
+import com.examly.springapp.model.User;
+import com.examly.springapp.security.JwtUtil;
+import com.examly.springapp.service.UserServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@CrossOrigin
+@RequestMapping("/api")
+public class AuthController {
+
+    @Autowired
+    private UserServiceImpl userService;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    @PostMapping("/register")
+    public ResponseEntity<?> registerUser(@RequestBody User u) {
+        return ResponseEntity.status(201).body(userService.register(u));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUser(@RequestBody User u) {
+        User user = userService.login(u);
+        if (user != null) {
+            String token = jwtUtil.generateToken(user.getEmail());
+
+            // ✅ Send user details with token
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("userId", user.getUserId());
+            response.put("username", user.getUsername());
+            response.put("role", user.getUserRole());
+
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.status(401).body("Invalid credentials");
+    }
+
+    @GetMapping("/user")
+    public ResponseEntity<?> getAllUsers() {
+        return ResponseEntity.status(200).body(userService.getAllUsers());
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<?> getUserById(@PathVariable Integer userId) {
+        return ResponseEntity.status(200).body(userService.getUserById(userId));
+    }
+}
+
+
+
+
+
+
+
+
+2️⃣ Modify UserServiceImpl.java
+📌 Changes:
+
+Login now finds the user by email instead of userId.
+
+
+
+
+package com.examly.springapp.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.examly.springapp.model.User;
+import com.examly.springapp.repository.UserRepo;
+import java.util.List;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+    @Autowired
+    private UserRepo userRepo;
+
+    @Override
+    public List<User> getAllUsers() {
+        return userRepo.findAll();
+    }
+
+    @Override
+    public User getUserById(int userId) {
+        return userRepo.findById(userId).orElse(null);
+    }
+
+    @Override
+    public User register(User u) {
+        return userRepo.save(u);
+    }
+
+    @Override
+    public User login(User u) {
+        User existingUser = userRepo.findByEmail(u.getEmail());
+        if (existingUser != null && existingUser.getPassword().equals(u.getPassword())) {
+            return existingUser;
+        }
+        return null;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+3️⃣ Modify UserRepo.java
+📌 Changes:
+
+Add a method to find users by email.
+
+
+
+
+
+
+
+package com.examly.springapp.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import com.examly.springapp.model.User;
+
+public interface UserRepo extends JpaRepository<User, Integer> {
+    User findByEmail(String email);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+4️⃣ Modify JwtUtil.java
+📌 Changes:
+
+No changes here, still used for JWT token generation.
+
+
+
+
+package com.examly.springapp.security;
+
+import io.jsonwebtoken.*;
+import org.springframework.stereotype.Component;
+import java.util.Date;
+import java.util.function.Function;
+
+@Component
+public class JwtUtil {
+    private final String SECRET_KEY = "your_secret_key";
+
+    public String generateToken(String username) {
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60))
+                .signWith(SignatureAlgorithm.HS256, SECRET_KEY)
+                .compact();
+    }
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .setSigningKey(SECRET_KEY)
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    public boolean isTokenValid(String token, String username) {
+        return (extractUsername(token).equals(username)) && !isTokenExpired(token);
+    }
+
+    private boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+🔹 Frontend Changes
+5️⃣ Modify auth.service.ts
+📌 Changes:
+
+Store token, userId, username, and role in localStorage.
+
+
+
+
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+
+  apiUrl: string = "https://ide-ccffffdefbceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080/api"; 
+
+  constructor(private http: HttpClient) {}
+
+  register(user: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/register`, user);
+  }
+
+  login(credentials: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/login`, credentials);
+  }
+
+  storeUserData(response: any) {
+    localStorage.setItem('jwtToken', response.token);
+    localStorage.setItem('userId', response.userId);
+    localStorage.setItem('username', response.username);
+    localStorage.setItem('role', response.role);
+  }
+
+  getToken() {
+    return localStorage.getItem('jwtToken');
+  }
+
+  getUserId() {
+    return localStorage.getItem('userId');
+  }
+
+  getUsername() {
+    return localStorage.getItem('username');
+  }
+
+  getUserRole() {
+    return localStorage.getItem('role');
+  }
+
+  isAuthenticated(): boolean {
+    return this.getToken() !== null;
+  }
+
+  logout() {
+    localStorage.removeItem('jwtToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('role');
+  }
+}
+
+
+
+
+
+
+
+
+
