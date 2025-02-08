@@ -1,0 +1,175 @@
+package com.examly.springapp.service;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.examly.springapp.model.Feedback;
+import com.examly.springapp.model.User;
+import com.examly.springapp.repository.FeedbackRepo;
+import com.examly.springapp.repository.UserRepo;
+
+@Service
+public class FeedbackServiceImpl implements FeedbackService{
+
+    @Autowired
+    private FeedbackRepo feedbackRepo;
+
+    @Autowired 
+    private UserRepo userRepo;
+
+    @Override
+    public Feedback addFeedback(Feedback feedback) {
+        if (feedback.getUser() != null) {
+            int userId=feedback.getUser().getUserId();
+            User u = userRepo.findById(userId).get();
+            feedback.setUser(u);
+            return feedbackRepo.save(feedback);
+        }
+        return null;
+    }
+
+    @Override
+    public Feedback getFeedbackByUserId(int userId) {
+        // if(feedbackRepo.existsById(userId)){
+        //     return feedbackRepo.getFeedbackByUserId(userId);
+        // }
+        return feedbackRepo.getByUserUserId(userId);
+    }
+  
+
+    @Override
+    public List<Feedback> getAllFeedbacks() {
+        return feedbackRepo.findAll();
+    }
+
+    @Override
+    public Optional<Feedback> getFeedbackById(Long id) {
+        if(feedbackRepo.existsById(id)){
+            return feedbackRepo.findById(id);
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Feedback updateFeedback(Long id, Feedback updatedFeedback) {
+        if(feedbackRepo.existsById(id)){
+            updatedFeedback.setFeedbackId(id);
+            return feedbackRepo.save(updatedFeedback);
+        }
+        return null;
+    }
+
+    @Override
+    public Feedback deleteFeed(Long id) {
+        Feedback deleted=new Feedback();
+        if(feedbackRepo.existsById(id)){
+          Feedback old=feedbackRepo.findById(id).get();
+            deleted.setFeedbackId(old.getFeedbackId());
+            deleted.setFeedbackText(old.getFeedbackText());
+            deleted.setDate(old.getDate());
+            deleted.setUser(old.getUser());
+            feedbackRepo.deleteById(id);
+            return deleted;
+        }
+        return null;
+    }
+
+    
+
+    
+    
+}
+
+
+
+
+
+
+controller  
+
+
+package com.examly.springapp.controller;
+
+import java.util.List;
+
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.examly.springapp.model.Feedback;
+import com.examly.springapp.service.FeedbackService;
+
+@RestController
+@CrossOrigin
+public class FeedbackController {
+
+    @Autowired
+    private FeedbackService feedbackService;
+    
+
+    @PostMapping("/api/feedback")
+    @PreAuthorize("hasAuthority('USER') or hasAuthority('ADMIN')")
+    public ResponseEntity<?> addJob(@RequestBody Feedback feedback){
+        return ResponseEntity.status(201).body(feedbackService.addFeedback(feedback));
+    }
+
+    @DeleteMapping("/api/feedback/{id}")
+    @PreAuthorize("hasAuthority('USER') or hasAuthority('ADMIN')")
+    public ResponseEntity<?> deleteFeed(@PathVariable Long id){
+        return ResponseEntity.status(200).body(feedbackService.deleteFeed(id));
+    }
+
+    @GetMapping("/api/feedback")
+    @PreAuthorize("hasAuthority('USER') or hasAuthority('ADMIN')")
+    public ResponseEntity<List<Feedback>> getAllFeedbacks(){
+        return ResponseEntity.status(200).body(feedbackService.getAllFeedbacks());
+    }
+
+    @PutMapping("/api/feedback/{id}")
+    @PreAuthorize("hasAuthority('USER')")
+    public ResponseEntity<?> updateFeedback(@PathVariable Long id, @RequestBody Feedback updatedFeedback){
+        return ResponseEntity.status(200).body(feedbackService.updateFeedback(id, updatedFeedback));
+    }
+
+    @GetMapping("/api/feedback/user/{userId}")
+    @PreAuthorize("hasAuthority('USER') or hasAuthority('ADMIN')")
+    public ResponseEntity<?> getFeedbackByUserId(@PathVariable int userId){
+        return ResponseEntity.status(200).body(feedbackService.getFeedbackByUserId(userId));
+
+    }
+
+    @GetMapping("/api/feedback/{id}")
+    @PreAuthorize("hasAuthority('USER') or hasAuthority('ADMIN')")
+    public ResponseEntity<?> getFeedbackById(@PathVariable Long id){
+        return ResponseEntity.status(200).body(feedbackService.getFeedbackById(id).get());
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
