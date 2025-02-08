@@ -1,0 +1,85 @@
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { Observable, throwError } from 'rxjs';
+import { LoanApplication } from '../models/loanapplication.model';
+import { Loan } from '../models/loan.model';
+import { catchError } from 'rxjs/operators';
+
+@Injectable({
+  providedIn: 'root'
+})
+
+export class LoanService {
+
+
+  // public apiUrl:string="https://ide-dccadbbbafbbfbbceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080/";
+  public apiUrl:string="https://ide-ccffffdefbceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080";//Bhawesh
+  //public apiUrl:string="https://ide-dccadbbbafbbfbbceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080"; //ujjwal
+    // public apiUrl:string="https://ide-ecffddafaaceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080"; //meghana
+
+
+  constructor(private http:HttpClient) { }
+  getAllLoans():Observable<Loan[]>{
+    return this.http.get<Loan[]>(this.apiUrl+'/api/loan').pipe(
+      catchError(this.handleError)
+    );
+}
+  deleteLoan(loanId:number):Observable<void>{
+    return this.http.delete<void>(this.apiUrl+"/api/loan/"+loanId).pipe(
+      catchError(this.handleError)
+    );
+  }
+  getLoanById(id:number):Observable<Loan>{
+    return this.http.get<Loan>(this.apiUrl+"/api/loan/"+id).pipe(
+      catchError(this.handleError)
+    );
+  }
+  addLoan(requestObject:Loan):Observable<Loan>{
+    return this.http.post<Loan>(this.apiUrl+'/api/loan',requestObject).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  updateLoan(id:number,requestObject:Loan):Observable<Loan>{
+    return this.http.put<Loan>(this.apiUrl+"/api/loan/"+id,requestObject).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getAppliedLoans(userId:number):Observable<LoanApplication[]>{
+    return this.http.get<LoanApplication[]>(this.apiUrl+'/api/loanapplication/user/'+userId).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  deleteLoanApplication(loanId:number):Observable<void>{
+    return this.http.delete<void>(this.apiUrl+"/api/loanapplication/"+loanId).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  addLoanApplication(data:LoanApplication):Observable<LoanApplication>{
+    return this.http.post<LoanApplication>(this.apiUrl+'/api/loanapplication',data).pipe(
+      catchError(this.handleError)
+    );
+  }
+  
+  getAllLoanApplications():Observable<LoanApplication[]>{
+    return this.http.get<LoanApplication[]>(this.apiUrl+"/api/loanapplication").pipe(
+      catchError(this.handleError)
+    );
+  }
+  updateLoanStatus(id:number,loanApplication:LoanApplication):Observable<LoanApplication>{
+    return this.http.put<LoanApplication>(this.apiUrl+"/api/loanapplication/"+id,loanApplication).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+
+
+  private handleError(error: HttpErrorResponse) {
+    return throwError(() => new Error(error.error?.message || 'Something went wrong!'));
+  }
+
+
+}
