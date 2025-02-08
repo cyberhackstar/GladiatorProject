@@ -1,0 +1,287 @@
+
+
+//auth controller
+
+package com.examly.springapp.controller;
+
+import com.examly.springapp.config.JwtUtils;
+import com.examly.springapp.model.AuthenticationResponse;
+import com.examly.springapp.model.User;
+import com.examly.springapp.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@CrossOrigin
+@RequestMapping("/api")
+public class AuthController {
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private JwtUtils jwtUtil;
+
+    @Autowired
+    private UserDetailsService userDetailsService;
+
+    @Autowired
+    private UserService userService;
+
+
+    @PostMapping("/login")
+    public ResponseEntity<?> createAuthenticationToken(@RequestBody User authenticationRequest) {
+    try {
+        // Fetch user from database
+        User user = userService.getUserByEmail(authenticationRequest.getEmail());
+
+        // Authenticate user
+        authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(authenticationRequest.getEmail(), authenticationRequest.getPassword())
+        );
+
+        // Generate JWT token
+        final UserDetails userDetails = userDetailsService.loadUserByUsername(authenticationRequest.getEmail());
+        final String jwt = jwtUtil.generateToken(userDetails.getUsername());
+
+        return ResponseEntity.ok(new AuthenticationResponse(jwt, user.getUsername(), user.getUserRole(), user.getUserId()));
+
+    } catch (BadCredentialsException e) {
+        // Return a proper 401 Unauthorized response
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password");
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+    }
+}
+
+    @PostMapping("/register")
+    public ResponseEntity<User> registerUser(@RequestBody User user) {
+        User createdUser = userService.createUser(user);
+        return ResponseEntity.ok(createdUser);
+    }
+
+    @GetMapping("/user/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable int id) {
+        User getUser = userService.getUserById(id);
+        return ResponseEntity.ok(getUser);
+    }
+
+}
+
+
+
+//userService
+
+package com.examly.springapp.service;
+
+import com.examly.springapp.exceptions.DuplicateUserException;
+import com.examly.springapp.exceptions.UserNotFoundException;
+import com.examly.springapp.model.User;
+import com.examly.springapp.repository.UserRepo;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+    @Autowired
+    private UserRepo userRepo;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Override
+    public User createUser(User user) {
+        User u = userRepo.findByEmail(user.getEmail());
+        if(u==null){
+            throw new DuplicateUserException("Email already exist");
+        }
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        return userRepo.save(user);
+    }
+
+    @Override
+    public User login(User user) {
+        User mainUser = userRepo.findByUsername(user.getUsername());
+        if (mainUser == null || !passwordEncoder.matches(user.getPassword(), mainUser.getPassword())) {
+            throw new UserNotFoundException("Invalid email or password");
+        }
+        return mainUser;
+    }
+
+    @Override
+    public List<User> getAllUsers() {
+        List<User> users = userRepo.findAll();
+        if (users.isEmpty()) {
+            throw new UserNotFoundException("No users found");
+        }
+        return users;
+    }
+
+    @Override
+    public User getUserById(int userId) {
+        return userRepo.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
+    }
+
+    @Override
+    public User getUserByEmail(String email) {
+        User user = userRepo.findByEmail(email);
+        if (user == null) {
+            throw new UserNotFoundException("User not found with Email: " + email);
+        }
+        return user;
+    }
+}
+
+
+
+
+//service in frontend
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+   apiUrl: string = "https://ide-ccffffdefbceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080/api";//bhawesh
+ //public apiUrl:string="https://ide-dccadbbbafbbfbbceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080/api" //ujjwal
+// public apiUrl:string="https://ide-ecffddafaaceedbdfbafbddafcfcc.premiumproject.examly.io/proxy/8080/api";
+
+  constructor(private http: HttpClient) {}
+
+  register(user: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/register`, user).pipe(
+      catchError(this.handleError)
+    );;
+  }
+
+  login(credentials: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/login`, credentials).pipe(
+      tap(response => {
+        if (response && response.token) {
+          this.storeUserData(response);
+        }
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  user(id:number):Observable<any>{
+    return this.http.get<any>(this.apiUrl+"/user/"+id)
+  }
+
+  private storeUserData(response: any) {
+    sessionStorage.setItem('jwtToken', response.token);
+    sessionStorage.setItem('userId', response.userId.toString());
+    sessionStorage.setItem('username', response.username);
+    sessionStorage.setItem('role', response.userRole);
+  }
+
+  getToken(): string | null {
+    return sessionStorage.getItem('jwtToken');
+  }
+
+  getUserId(): number | null {
+    const userId = sessionStorage.getItem('userId');
+    return userId ? Number(userId) : null;
+  }
+
+  getUsername(): string | null {
+    return sessionStorage.getItem('username');
+  }
+
+  getUserRole(): string | null {
+    return sessionStorage.getItem('role');
+  }
+
+  isAuthenticated(): boolean {
+    if(this.getToken() !== null){
+    return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  logout(): void {
+    sessionStorage.removeItem('jwtToken');
+    sessionStorage.removeItem('userId');
+    sessionStorage.removeItem('username');
+    sessionStorage.removeItem('role');
+    
+  }
+
+  private handleError(error: HttpErrorResponse) {
+    return throwError(() => new Error(error.error?.message || 'Something went wrong!'));
+  }  
+
+}
+
+
+
+
+//component 
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { User } from 'src/app/models/user.model';
+import { AuthService } from 'src/app/services/auth.service';
+
+
+@Component({
+  selector: 'app-registration',
+  templateUrl: './registration.component.html',
+  styleUrls: ['./registration.component.css']
+})
+export class RegistrationComponent implements OnInit {
+user:User;
+errorMessage:string;
+
+  registrationForm: FormGroup;
+  constructor(private fb: FormBuilder, private router: Router,private service:AuthService) {
+    this.registrationForm= this.fb.group({
+      username: ["",Validators.required],
+      email: ["",[Validators.required,Validators.pattern('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')]],
+      password: ["",[Validators.required, Validators.minLength(8),Validators.pattern("(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+")]],
+      confirmPassword: ["",Validators.required],
+      mobileNumber: ["",[Validators.required,Validators.pattern("[0-9]{10}")]],
+      userRole: ["",Validators.required]
+    });
+   }
+   ngOnInit(): void {
+  }
+  
+  submit(){
+    console.log(this.registrationForm.value);
+    // console.log(this.user);
+    if (this.registrationForm.valid) {
+      // this.service.register(this.registrationForm.value).subscribe(x=>{
+      //   console.log(x);
+      //   this.router.navigate(['/login']);
+      // })
+      this.service.register(this.registrationForm.value).subscribe({
+        next: (x) =>{
+          
+        },
+        error: (error) => {
+          alert("Email already exist")
+      }
+      })
+      
+  }
+}
+
+}
