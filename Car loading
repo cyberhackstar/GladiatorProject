@@ -1,0 +1,82 @@
+<div class="loader-overlay" *ngIf="isLoading">
+  <div class="car-container">
+    <div class="car">🚗</div>
+    <div class="road">
+      <div class="lane"></div>
+      <div class="lane"></div>
+      <div class="lane"></div>
+      <div class="lane"></div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+/* Full-screen overlay */
+.loader-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9); /* Light transparent background */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Car animation container */
+.car-container {
+  position: relative;
+  width: 250px;
+  height: 100px;
+}
+
+/* Moving Car */
+.car {
+  font-size: 40px;
+  position: absolute;
+  top: 10px;
+  left: -30px;
+  transform: scaleX(-1); /* MIRRORS the car to face RIGHT */
+  animation: drive 2s linear infinite;
+}
+
+/* Road with lanes */
+.road {
+  width: 250px;
+  height: 20px;
+  background: dodgerblue;
+  position: absolute;
+  bottom: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px;
+}
+
+/* White lane stripes */
+.lane {
+  width: 30px;
+  height: 5px;
+  background: white;
+  animation: roadMove 1s linear infinite;
+}
+
+/* Car moves from left to right */
+@keyframes drive {
+  0% { transform: translateX(-30px) scaleX(-1); }
+  100% { transform: translateX(200px) scaleX(-1); }
+}
+
+/* Road stripes move continuously */
+@keyframes roadMove {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-250px); }
+}
