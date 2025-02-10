@@ -1,93 +1,49 @@
 <nav class="nav-container">
-
     <div class="logo-container">
-      <a routerLink="/home">
-      <img src="assets/icons/whitelogo.png" alt="Vehicle Loan Hub Logo" class="logo">
-     </a>
+        <a routerLink="/home">
+            <svg class="animated-logo" width="200" height="50" viewBox="0 0 200 50" xmlns="http://www.w3.org/2000/svg">
+                <!-- Vehicle Loan Hub Text -->
+                <text x="30" y="35" font-size="20" fill="white" font-family="Arial, sans-serif">
+                    Vehicle Loan Hub
+                </text>
+                
+                <!-- Moving Car -->
+                <g class="moving-car">
+                    <rect x="0" y="10" width="30" height="15" fill="red" stroke="black" stroke-width="1"></rect>
+                    <circle cx="5" cy="28" r="4" fill="black"></circle>
+                    <circle cx="25" cy="28" r="4" fill="black"></circle>
+                </g>
+            </svg>
+        </a>
     </div>
-  
+
     <div class="all-items">
-      <a routerLink="/home">Home</a>
-      <a routerLink="/registration">Register</a>
-      <a routerLink="/login">Login</a>
+        <a routerLink="/home">Home</a>
+        <a routerLink="/registration">Register</a>
+        <a routerLink="/login">Login</a>
     </div>
-  </nav>
+</nav>
 
 
 
 
-
------ css -----
-
-.nav-container {
-    background: linear-gradient(135deg, #0a0b15da 0%, #0b0d12 100%);
-    padding: 0.8rem 2rem;
-    height: 10vh;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    top: 0;
-    z-index: 1000;
-}
-
-.nav-container h4 {
-    color: #d2b0b0;
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-    font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
-}
-
-.all-items {
-    display: flex;
-    gap: 2rem;
-    align-items: center;
-}
-
-.all-items a {
-    color: #e3f2fd;
-    text-decoration: none;
-    font-size: 1.1rem;
-    font-weight: 500;
-    padding: 0.5rem 1rem;
-    border-radius: 5px;
-    transition: all 0.3s ease;
-    position: relative;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.all-items a:hover {
-    color: #64b5f6;
-    transform: translateY(-2px);
-}
-
-@media (max-width: 768px) {
-    .nav-container {
-        flex-direction: column;
-        padding: 1rem;
-    }
-
-    .all-items {
-        gap: 1.5rem;
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    .all-items a {
-        font-size: 1rem;
-        padding: 0.4rem 0.8rem;
-    }
-}
 
 .logo-container {
     display: flex;
     align-items: center;
 }
 
-.logo {
-    height: 40px; /* Adjust size as needed */
-    width: auto;
+.animated-logo {
+    width: 200px;
+    height: 50px;
+}
+
+.moving-car {
+    animation: moveCar 3s linear infinite;
+}
+
+/* Car Animation */
+@keyframes moveCar {
+    0% { transform: translateX(0px); }
+    100% { transform: translateX(170px); } /* Moves across the text */
 }
