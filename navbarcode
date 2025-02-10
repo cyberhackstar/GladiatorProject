@@ -1,0 +1,20 @@
+<nav class="nav-container">
+
+    <div class="logo-container">
+      <a routerLink="/home">
+      <img src="assets/icons/whitelogo.png" alt="Vehicle Loan Hub Logo" class="logo">
+     </a>
+    </div>
+  
+    <div class="all-items">
+      <a routerLink="/home">Home</a>
+      <a routerLink="/registration">Register</a>
+      <a routerLink="/login">Login</a>
+    </div>
+  </nav>
+
+
+
+
+
+----- css -----
